@@ -104,13 +104,19 @@ module top(
     reg vid_de;
 
     reg [7:0] frame = 0;
-    reg [7:0] xpos = 0;
-    reg [7:0] ypos = 0;
+    reg [15:0] xpos = 0;
+    reg [15:0] ypos = 0;
 
     reg hsync_prev = 0;
     reg vsync_prev = 0;
     reg hsync_pulse = 0;
     reg vsync_pulse = 0;
+
+    reg [11:0] colour_count = 0;
+    reg top;
+    reg bottom;
+    reg left;
+    reg right;
 
     always @(posedge pixclk) begin
         hsync_prev <= hsync;
@@ -119,16 +125,47 @@ module top(
         vsync_pulse <= vsync & ~vsync_prev;
 
         frame <= frame + vsync_pulse;
-        xpos <= hsync_pulse ? frame : xpos + data_en;
-        ypos <= vsync_pulse ? frame : ypos + hsync_pulse;
 
         vid_hs <= hsync_prev;
         vid_vs <= vsync_prev;
         vid_de <= data_en;
 
-        vid_r[7:4] <= ypos[7:4];
-        vid_g[7:4] <= xpos[7:4];
-        vid_b[7:4] <= xpos[3:0];
+	xpos <= xpos + 1;
+
+	if (hsync_pulse) begin
+		xpos <= 0;
+		ypos <= ypos + 1;
+		colour_count <= colour_count + 1;
+	end
+
+	if (vsync_pulse) begin
+		xpos <= 0;
+		ypos <= 0;
+	end
+
+	// Screen is 1280x720 so I'd expect these 
+	// borders to all be the same, but they're
+	// not so it's like there's an area off-screen?
+
+	top <= ypos < 64;
+	bottom <= ypos > 720-64+40;
+
+	left <= xpos < 300;
+	right <= xpos > 1480;
+
+	if (top || bottom || left || right)
+	begin
+	        vid_r[7:4] <= colour_count[3:0];
+	        vid_g[7:4] <= colour_count[3:0];
+	        vid_b[7:4] <= colour_count[3:0];
+	end
+	else
+	begin
+	        vid_r[7:4] <= 4'b1111;
+	        vid_g[7:4] <= 4'b0000;
+	        vid_b[7:4] <= 4'b0000;
+	end
+
     end
 
 endmodule
